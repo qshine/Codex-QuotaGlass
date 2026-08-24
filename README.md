@@ -29,7 +29,7 @@ The packaged app is ad-hoc signed for local use. A Developer ID identity and a n
 - A live App Server notification triggers an immediate full quota refresh.
 - A 45-second poll is the fallback.
 - A cross-path process lock guarantees one ornament even if another copy is launched.
-- Drag anywhere on the card to move it; the normalized screen position is restored later.
+- Hold the left mouse button anywhere on the card to move it; use the right-click menu for actions. The normalized screen position is restored later.
 - If data is older than 60 seconds, QuotaGlass marks it as stale instead of presenting it as current.
 - When multiple limits exist, the smallest remaining percentage wins. Ties prefer the later reset, then the primary window.
 

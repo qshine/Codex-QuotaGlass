@@ -4,19 +4,18 @@ import CoreGraphics
 import SwiftUI
 
 @MainActor
-final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecognizerDelegate {
+final class DesktopPanelController: NSObject, NSWindowDelegate {
     private let panel: DesktopPanel
     private let viewModel: QuotaViewModel
     private var cancellables: Set<AnyCancellable> = []
     private var screenObserver: NSObjectProtocol?
-    private var isRestoringPosition = false
-    private var dragStart: (mouse: CGPoint, window: CGPoint)?
+    private var isRestoringPosition = true
 
     init(viewModel: QuotaViewModel) {
         self.viewModel = viewModel
         panel = DesktopPanel(
             contentRect: CGRect(origin: .zero, size: Self.collapsedSize),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
@@ -55,17 +54,20 @@ final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecogni
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.isMovable = true
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false
         panel.acceptsMouseMovedEvents = true
-        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+        // Use an ordinary interactive Window Server layer immediately below
+        // normal app windows. Finder's special desktop layers can be visible
+        // while still routing physical pointer input to the desktop itself.
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue - 1)
         panel.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
-        panel.contentView = DraggableHostingView(rootView: QuotaCardView(model: viewModel))
+        let hostingView = DraggableHostingView(rootView: QuotaCardView(model: viewModel))
+        hostingView.onDragEnded = { [weak self] in
+            self?.keepVisible()
+            self?.persistPosition()
+        }
+        panel.contentView = hostingView
 
-        let dragGesture = NSPanGestureRecognizer(target: self, action: #selector(handleDragGesture(_:)))
-        dragGesture.buttonMask = 0x1
-        dragGesture.delaysPrimaryMouseButtonEvents = false
-        dragGesture.delegate = self
-        panel.contentView?.addGestureRecognizer(dragGesture)
     }
 
     private func observeViewModel() {
@@ -91,14 +93,25 @@ final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecogni
         let visible = screen.visibleFrame
         let width = panel.frame.width
         let height = panel.frame.height
-        let xRatio = UserDefaults.standard.object(forKey: "panelXRatio") as? Double ?? 0.93
-        let yRatio = UserDefaults.standard.object(forKey: "panelYRatio") as? Double ?? 0.86
+        let defaults = UserDefaults.standard
+        let needsPositionMigration = defaults.integer(forKey: "panelPositionVersion") < Self.positionStorageVersion
+        let xRatio = needsPositionMigration
+            ? 0.93
+            : defaults.object(forKey: "panelXRatio") as? Double ?? 0.93
+        let yRatio = needsPositionMigration
+            ? 0.86
+            : defaults.object(forKey: "panelYRatio") as? Double ?? 0.86
         let x = visible.minX + xRatio * max(0, visible.width - width)
         let y = visible.minY + yRatio * max(0, visible.height - height)
 
         isRestoringPosition = true
         panel.setFrameOrigin(CGPoint(x: x, y: y))
         isRestoringPosition = false
+
+        if needsPositionMigration {
+            defaults.set(Self.positionStorageVersion, forKey: "panelPositionVersion")
+            persistPosition()
+        }
     }
 
     private func preferredScreen() -> NSScreen? {
@@ -117,39 +130,7 @@ final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecogni
         UserDefaults.standard.set(screen.localizedName, forKey: "panelScreenName")
         UserDefaults.standard.set(xRatio, forKey: "panelXRatio")
         UserDefaults.standard.set(yRatio, forKey: "panelYRatio")
-    }
-
-    @objc private func handleDragGesture(_ gesture: NSPanGestureRecognizer) {
-        switch gesture.state {
-        case .began:
-            dragStart = (mouse: NSEvent.mouseLocation, window: panel.frame.origin)
-
-        case .changed:
-            guard let dragStart else { return }
-            let mouse = NSEvent.mouseLocation
-            panel.setFrameOrigin(
-                CGPoint(
-                    x: dragStart.window.x + mouse.x - dragStart.mouse.x,
-                    y: dragStart.window.y + mouse.y - dragStart.mouse.y
-                )
-            )
-
-        case .ended, .cancelled:
-            guard dragStart != nil else { return }
-            dragStart = nil
-            keepVisible()
-            persistPosition()
-
-        default:
-            break
-        }
-    }
-
-    func gestureRecognizer(
-        _ gestureRecognizer: NSGestureRecognizer,
-        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer
-    ) -> Bool {
-        true
+        UserDefaults.standard.set(Self.positionStorageVersion, forKey: "panelPositionVersion")
     }
 
     private func keepVisible() {
@@ -163,17 +144,55 @@ final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecogni
 
     private static let collapsedSize = CGSize(width: 254, height: 342)
     private static let expandedSize = CGSize(width: 254, height: 540)
+    private static let positionStorageVersion = 2
 }
 
 private final class DesktopPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
 
 private final class DraggableHostingView<Content: View>: NSHostingView<Content> {
-    override var mouseDownCanMoveWindow: Bool { true }
+    var onDragEnded: (() -> Void)?
+    private var dragStart: (mouse: CGPoint, window: CGPoint)?
+
+    override var mouseDownCanMoveWindow: Bool { false }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        switch NSApp.currentEvent?.type {
+        case .leftMouseDown, .leftMouseDragged, .leftMouseUp:
+            return self
+        default:
+            return super.hitTest(point)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        dragStart = (
+            mouse: window.convertPoint(toScreen: event.locationInWindow),
+            window: window.frame.origin
+        )
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window, let dragStart else { return }
+        let mouse = window.convertPoint(toScreen: event.locationInWindow)
+        window.setFrameOrigin(
+            CGPoint(
+                x: dragStart.window.x + mouse.x - dragStart.mouse.x,
+                y: dragStart.window.y + mouse.y - dragStart.mouse.y
+            )
+        )
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard dragStart != nil else { return }
+        dragStart = nil
+        onDragEnded?()
     }
 }

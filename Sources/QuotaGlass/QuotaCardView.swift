@@ -10,6 +10,10 @@ struct QuotaCardView: View {
     }
 
     var body: some View {
+        card
+    }
+
+    private var card: some View {
         VStack(spacing: 10) {
             header
             HourglassVisual(percent: model.livePercent, isStale: isStale)
@@ -34,10 +38,6 @@ struct QuotaCardView: View {
                     .multilineTextAlignment(.center)
             }
 
-            if model.showsLaunchPrompt {
-                launchPrompt
-            }
-
             if model.isExpanded, let snapshot = model.visibleSnapshot {
                 Divider().opacity(0.5)
                 details(snapshot)
@@ -57,12 +57,6 @@ struct QuotaCardView: View {
         }
         .padding(14)
         .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .onTapGesture {
-            guard model.visibleSnapshot != nil else { return }
-            withAnimation(.snappy(duration: 0.28)) {
-                model.isExpanded.toggle()
-            }
-        }
         .contextMenu { contextMenu }
     }
 
@@ -71,30 +65,10 @@ struct QuotaCardView: View {
             Label("QuotaGlass", systemImage: "hourglass")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
             Spacer()
-            Button {
-                model.refresh()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .buttonStyle(.plain)
-            .help("立即刷新")
+            Image(systemName: "hand.draw")
+                .help("按住任意位置拖动")
         }
         .foregroundStyle(.secondary)
-    }
-
-    private var launchPrompt: some View {
-        VStack(spacing: 7) {
-            Text("登录 Mac 后自动显示沙漏？")
-                .font(.system(size: 11, weight: .medium))
-            HStack(spacing: 8) {
-                Button("暂不") { model.answerLaunchPrompt(enable: false) }
-                Button("开启") { model.answerLaunchPrompt(enable: true) }
-                    .buttonStyle(.borderedProminent)
-            }
-            .controlSize(.small)
-        }
-        .padding(9)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func details(_ snapshot: QuotaSnapshot) -> some View {
@@ -126,9 +100,11 @@ struct QuotaCardView: View {
         Button(model.launchAtLogin.isEnabled ? "关闭登录时启动" : "登录时启动") {
             model.setLaunchAtLogin(!model.launchAtLogin.isEnabled)
         }
+        Button(model.isExpanded ? "收起额度详情" : "展开全部额度") {
+            model.isExpanded.toggle()
+        }
         Divider()
         Button("打开官方客户端") { model.openOfficialClient() }
-        Button("关于 QuotaGlass") { model.isExpanded = true }
         Divider()
         Button("退出") { model.quit() }
     }
