@@ -1,0 +1,36 @@
+{
+  "id": 2,
+  "result": {
+    "rateLimits": {
+      "limitId": "codex",
+      "limitName": "Codex",
+      "primary": {
+        "usedPercent": 7,
+        "windowDurationMins": 10080,
+        "resetsAt": 1788139339
+      },
+      "secondary": null
+    },
+    "rateLimitsByLimitId": {
+      "codex": {
+        "limitId": "codex",
+        "limitName": "Codex",
+        "primary": {
+          "usedPercent": 7,
+          "windowDurationMins": 10080,
+          "resetsAt": 1788139339
+        },
+        "secondary": {
+          "usedPercent": 54,
+          "windowDurationMins": 300,
+          "resetsAt": 1787540000
+        },
+        "individualLimit": {
+          "remainingPercent": 61,
+          "resetsAt": 1789000000
+        },
+        "futureField": "ignored"
+      }
+    }
+  }
+}
