@@ -4,13 +4,13 @@ import CoreGraphics
 import SwiftUI
 
 @MainActor
-final class DesktopPanelController: NSObject, NSWindowDelegate {
+final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecognizerDelegate {
     private let panel: DesktopPanel
     private let viewModel: QuotaViewModel
     private var cancellables: Set<AnyCancellable> = []
     private var screenObserver: NSObjectProtocol?
     private var isRestoringPosition = false
-    private var dragOrigin: CGPoint?
+    private var dragStart: (mouse: CGPoint, window: CGPoint)?
 
     init(viewModel: QuotaViewModel) {
         self.viewModel = viewModel
@@ -58,11 +58,13 @@ final class DesktopPanelController: NSObject, NSWindowDelegate {
         panel.acceptsMouseMovedEvents = true
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.contentView = NSHostingView(
-            rootView: QuotaCardView(model: viewModel) { [weak self] translation, ended in
-                self?.handleDrag(translation: translation, ended: ended)
-            }
-        )
+        panel.contentView = NSHostingView(rootView: QuotaCardView(model: viewModel))
+
+        let dragGesture = NSPanGestureRecognizer(target: self, action: #selector(handleDragGesture(_:)))
+        dragGesture.buttonMask = 0x1
+        dragGesture.delaysPrimaryMouseButtonEvents = false
+        dragGesture.delegate = self
+        panel.contentView?.addGestureRecognizer(dragGesture)
     }
 
     private func observeViewModel() {
@@ -116,24 +118,37 @@ final class DesktopPanelController: NSObject, NSWindowDelegate {
         UserDefaults.standard.set(yRatio, forKey: "panelYRatio")
     }
 
-    private func handleDrag(translation: CGSize, ended: Bool) {
-        if dragOrigin == nil {
-            dragOrigin = panel.frame.origin
-        }
-        guard let origin = dragOrigin else { return }
+    @objc private func handleDragGesture(_ gesture: NSPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            dragStart = (mouse: NSEvent.mouseLocation, window: panel.frame.origin)
 
-        panel.setFrameOrigin(
-            CGPoint(
-                x: origin.x + translation.width,
-                y: origin.y - translation.height
+        case .changed:
+            guard let dragStart else { return }
+            let mouse = NSEvent.mouseLocation
+            panel.setFrameOrigin(
+                CGPoint(
+                    x: dragStart.window.x + mouse.x - dragStart.mouse.x,
+                    y: dragStart.window.y + mouse.y - dragStart.mouse.y
+                )
             )
-        )
 
-        if ended {
-            dragOrigin = nil
+        case .ended, .cancelled:
+            guard dragStart != nil else { return }
+            dragStart = nil
             keepVisible()
             persistPosition()
+
+        default:
+            break
         }
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: NSGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer
+    ) -> Bool {
+        true
     }
 
     private func keepVisible() {

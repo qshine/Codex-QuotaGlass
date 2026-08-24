@@ -3,7 +3,6 @@ import SwiftUI
 
 struct QuotaCardView: View {
     @ObservedObject var model: QuotaViewModel
-    let onWindowDrag: (CGSize, Bool) -> Void
 
     private var isStale: Bool {
         if case .stale = model.state { return true }
@@ -64,11 +63,6 @@ struct QuotaCardView: View {
                 model.isExpanded.toggle()
             }
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 3, coordinateSpace: .global)
-                .onChanged { onWindowDrag($0.translation, false) }
-                .onEnded { onWindowDrag($0.translation, true) }
-        )
         .contextMenu { contextMenu }
     }
 
