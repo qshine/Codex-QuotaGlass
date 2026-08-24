@@ -4,7 +4,7 @@
 
 QuotaGlass is a lightweight native macOS desktop hourglass that keeps your remaining Codex quota visible at a glance.
 
-![QuotaGlass displayed on the macOS desktop](docs/images/quotaglass-desktop.png)
+![QuotaGlass displayed on the macOS desktop](docs/images/quotaglass-desktop-v2.png)
 
 ## Download
 

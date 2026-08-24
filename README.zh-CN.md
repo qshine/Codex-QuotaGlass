@@ -4,7 +4,7 @@
 
 QuotaGlass 是一个轻量的原生 macOS 桌面沙漏，让你随时看到 Codex 的剩余额度。
 
-![QuotaGlass 在 macOS 桌面上的显示效果](docs/images/quotaglass-desktop.png)
+![QuotaGlass 在 macOS 桌面上的显示效果](docs/images/quotaglass-desktop-v2.png)
 
 ## 下载
 
