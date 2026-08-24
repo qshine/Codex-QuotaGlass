@@ -20,9 +20,17 @@ swift build
 open .build/app/QuotaGlass.app
 ```
 
+To build the distributable disk image for version 0.0.1:
+
+```bash
+./Scripts/build-dmg.sh 0.0.1
+```
+
+The output is written to `dist/Codex-QuotaGlass-0.0.1-macos-arm64.dmg`.
+
 `swift test` remains the standard test target and compile check. On a machine with only Command Line Tools, Apple does not include the `xctest` launcher, so `Scripts/test.sh` also runs the same critical mapping, protocol, stale-state, backoff, reset, and mock-provider checks through a standalone runner (19 assertions). Full Xcode runs the Swift Testing suites normally.
 
-The packaged app is ad-hoc signed for local use. A Developer ID identity and a notarytool keychain profile are required for public distribution.
+The packaged app and preview DMG are ad-hoc signed for local use. A Developer ID identity and a notarytool keychain profile are required for a notarized public distribution.
 
 ## Data behavior
 
