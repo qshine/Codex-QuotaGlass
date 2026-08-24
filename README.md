@@ -1,55 +1,39 @@
 # QuotaGlass
 
-QuotaGlass is a small native macOS desktop ornament that mirrors the most constrained Codex/Work usage window as an hourglass.
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-The app reads quota information through the locally installed official Codex App Server. It never reads browser cookies, ChatGPT databases, or authentication tokens.
+QuotaGlass is a lightweight native macOS desktop hourglass that keeps your remaining Codex quota visible at a glance.
+
+![QuotaGlass displayed on the macOS desktop](docs/images/quotaglass-desktop.png)
+
+## Download
+
+Download the latest Apple Silicon DMG from [GitHub Releases](https://github.com/qshine/Codex-QuotaGlass/releases/latest).
+
+## Features
+
+- Displays the most constrained Codex quota window as an animated hourglass.
+- Updates after live rate-limit notifications, with a 45-second fallback refresh.
+- Shows the remaining percentage, quota window, and reset countdown.
+- Lets you drag the entire card and restores its position across launches.
+- Keeps a single desktop widget across all Spaces.
+- Provides refresh, launch-at-login, open-client, and quit actions from the right-click menu.
+- Marks old data as stale instead of presenting it as live.
 
 ## Requirements
 
 - Apple Silicon Mac
 - macOS 14 or newer
 - The official ChatGPT/Codex desktop app installed and signed in
-- Swift 6 toolchain (Xcode Command Line Tools is sufficient for local builds)
 
-## Build and test
+## How quota is selected
 
-```bash
-./Scripts/test.sh
-swift build
-./Scripts/package-app.sh
-open .build/app/QuotaGlass.app
-```
-
-To build the distributable disk image for version 0.0.1:
-
-```bash
-./Scripts/build-dmg.sh 0.0.1
-```
-
-The output is written to `dist/Codex-QuotaGlass-0.0.1-macos-arm64.dmg`.
-
-`swift test` remains the standard test target and compile check. On a machine with only Command Line Tools, Apple does not include the `xctest` launcher, so `Scripts/test.sh` also runs the same critical mapping, protocol, stale-state, backoff, reset, and mock-provider checks through a standalone runner (19 assertions). Full Xcode runs the Swift Testing suites normally.
-
-The packaged app and preview DMG are ad-hoc signed for local use. A Developer ID identity and a notarytool keychain profile are required for a notarized public distribution.
-
-## Data behavior
-
-- A live App Server notification triggers an immediate full quota refresh.
-- A 45-second poll is the fallback.
-- A cross-path process lock guarantees one ornament even if another copy is launched.
-- Hold the left mouse button anywhere on the card to move it; use the right-click menu for actions. The normalized screen position is restored later.
-- If data is older than 60 seconds, QuotaGlass marks it as stale instead of presenting it as current.
-- When multiple limits exist, the smallest remaining percentage wins. Ties prefer the later reset, then the primary window.
+QuotaGlass reads quota information from the locally installed official Codex App Server. When several quota windows are available, it displays the one with the lowest remaining percentage. Ties prefer the window with the later reset time, then the primary window.
 
 ## Privacy
 
-QuotaGlass has no analytics and no cloud service. Only normalized quota percentages, reset times, window position, and launch-at-login preference are held locally.
+QuotaGlass has no analytics and no cloud service. It does not read browser cookies, ChatGPT databases, or authentication tokens. Only normalized quota values, reset times, widget position, and the launch-at-login preference are stored locally.
 
-## Packaging and notarization
+## Distribution note
 
-```bash
-QUOTAGLASS_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./Scripts/package-app.sh release
-./Scripts/notarize.sh .build/app/QuotaGlass.app YOUR_NOTARYTOOL_PROFILE
-```
-
-The notarization script submits a temporary ZIP and staples the accepted ticket to the app.
+Version 0.0.1 is an Apple Silicon preview distributed with an ad-hoc signature. It has not yet been notarized with an Apple Developer ID.
