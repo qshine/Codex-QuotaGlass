@@ -54,11 +54,12 @@ final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecogni
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = false
+        panel.isMovable = true
+        panel.isMovableByWindowBackground = true
         panel.acceptsMouseMovedEvents = true
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.contentView = NSHostingView(rootView: QuotaCardView(model: viewModel))
+        panel.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
+        panel.contentView = DraggableHostingView(rootView: QuotaCardView(model: viewModel))
 
         let dragGesture = NSPanGestureRecognizer(target: self, action: #selector(handleDragGesture(_:)))
         dragGesture.buttonMask = 0x1
@@ -167,4 +168,12 @@ final class DesktopPanelController: NSObject, NSWindowDelegate, NSGestureRecogni
 private final class DesktopPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+private final class DraggableHostingView<Content: View>: NSHostingView<Content> {
+    override var mouseDownCanMoveWindow: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
 }
