@@ -15,10 +15,16 @@ enum QuotaGlassMain {
             return
         }
 
+        guard let instanceLock = SingleInstanceLock(identifier: "com.jianxun.quotaglass") else {
+            return
+        }
+
         let delegate = AppDelegate()
         application.delegate = delegate
         application.setActivationPolicy(.accessory)
-        application.run()
+        withExtendedLifetime(instanceLock) {
+            application.run()
+        }
         _ = delegate
     }
 }

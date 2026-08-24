@@ -10,6 +10,7 @@ final class DesktopPanelController: NSObject, NSWindowDelegate {
     private var cancellables: Set<AnyCancellable> = []
     private var screenObserver: NSObjectProtocol?
     private var isRestoringPosition = false
+    private var dragOrigin: CGPoint?
 
     init(viewModel: QuotaViewModel) {
         self.viewModel = viewModel
@@ -53,11 +54,15 @@ final class DesktopPanelController: NSObject, NSWindowDelegate {
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false
         panel.acceptsMouseMovedEvents = true
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.contentView = NSHostingView(rootView: QuotaCardView(model: viewModel))
+        panel.contentView = NSHostingView(
+            rootView: QuotaCardView(model: viewModel) { [weak self] translation, ended in
+                self?.handleDrag(translation: translation, ended: ended)
+            }
+        )
     }
 
     private func observeViewModel() {
@@ -109,6 +114,26 @@ final class DesktopPanelController: NSObject, NSWindowDelegate {
         UserDefaults.standard.set(screen.localizedName, forKey: "panelScreenName")
         UserDefaults.standard.set(xRatio, forKey: "panelXRatio")
         UserDefaults.standard.set(yRatio, forKey: "panelYRatio")
+    }
+
+    private func handleDrag(translation: CGSize, ended: Bool) {
+        if dragOrigin == nil {
+            dragOrigin = panel.frame.origin
+        }
+        guard let origin = dragOrigin else { return }
+
+        panel.setFrameOrigin(
+            CGPoint(
+                x: origin.x + translation.width,
+                y: origin.y - translation.height
+            )
+        )
+
+        if ended {
+            dragOrigin = nil
+            keepVisible()
+            persistPosition()
+        }
     }
 
     private func keepVisible() {
